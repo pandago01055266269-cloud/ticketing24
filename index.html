@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>티켓팅 연습기</title>
+<style>
+  /* ========== 1. 기본 스타일 ========== */
+  :root{
+    --bg:#0e0f13; --panel:#171920; --line:#262934; --text:#eef0f5; --muted:#8a8fa0;
+    --accent:#ff3d68; --accent2:#ffb020; --ok:#2fd27d; --dim:#2a2d38; --sold:#3a3d48;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR",sans-serif;
+    -webkit-tap-highlight-color:transparent}
+  .wrap{max-width:560px;margin:0 auto;padding:20px 16px 48px}
+  h1{font-size:15px;font-weight:600;color:var(--muted);text-align:center;margin:4px 0 18px;letter-spacing:.04em}
+  button{font-family:inherit}
+  .hide{display:none!important}
+
+  /* ========== 2. 시계 + 예매 버튼 ========== */
+  .clock{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;
+    text-align:center;font-size:clamp(34px,11vw,60px);font-weight:700;letter-spacing:-.02em;line-height:1}
+  .clock .ms{color:var(--accent)}
+  .status{text-align:center;color:var(--muted);font-size:14px;margin:10px 0 18px;min-height:20px;font-variant-numeric:tabular-nums}
+  .status b{color:var(--accent2)}
+  .btn-book{display:block;width:100%;padding:20px;border:0;border-radius:14px;font-size:20px;font-weight:800;
+    background:var(--dim);color:#5d6273;cursor:not-allowed;touch-action:manipulation}
+  .btn-book.on{background:var(--accent);color:#fff;cursor:pointer;animation:pulse 1s infinite}
+  .btn-book.on:active{transform:scale(.98)}
+  .btn-book.done{background:#3a3d4a;color:var(--text);animation:none;cursor:default}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,61,104,.55)}100%{box-shadow:0 0 0 18px rgba(255,61,104,0)}}
+  .venue-tag{text-align:center;font-size:13px;color:var(--muted);margin-top:8px}
+
+  /* ========== 3. 카드 공통 ========== */
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:16px}
+  .card h2{font-size:14px;margin:0 0 12px;color:var(--muted);font-weight:600}
+  .row{display:flex;gap:6px;margin-top:8px}
+  .row button,.quick button{flex:1;padding:10px 6px;border-radius:10px;border:1px solid var(--line);
+    background:#1f222b;color:var(--text);font-size:14px;cursor:pointer}
+  .row .primary{background:var(--text);color:#111;font-weight:700;border-color:var(--text)}
+
+  /* ========== 4. 대기열 시각화 ========== */
+  .counter{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+  .counter .n{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
+  .counter .l{font-size:13px;color:var(--muted)}
+  .qgrid{display:grid;grid-template-columns:repeat(20,1fr);gap:3px}
+  .qgrid i{aspect-ratio:1;border-radius:2px;background:var(--dim);display:block}
+  .qgrid i.f{background:#5a6075}
+  .qgrid i.me{background:var(--accent);box-shadow:0 0 0 2px #fff inset}
+  .legend{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:6px}
+
+  /* ========== 5. 설정 ========== */
+  .seg{display:flex;background:#0f1116;border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:14px}
+  .seg button{flex:1;padding:10px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-size:15px;font-weight:600;cursor:pointer}
+  .seg button.sel{background:var(--text);color:#111}
+  .timeset{display:flex;align-items:center;gap:6px;justify-content:center}
+  .timeset input{width:64px;padding:10px 4px;border-radius:10px;border:1px solid var(--line);background:#0f1116;
+    color:var(--text);font-size:22px;text-align:center;font-family:ui-monospace,Menlo,monospace}
+  .timeset span{font-size:22px;color:var(--muted)}
+  .quick{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .msg{font-size:13px;color:var(--accent2);text-align:center;margin-top:8px;min-height:16px}
+
+  .stadium{display:block;width:100%;margin-bottom:14px;padding:12px;border-radius:10px;border:1px solid var(--line);
+    background:#0f1116;color:var(--text);font-size:15px;font-family:inherit}
+  .notice{text-align:center;font-size:12px;color:var(--muted);margin:22px 0 0;line-height:1.6}
+  .sp-notice{font-size:11px;color:#999;text-align:center;margin-top:12px}
+
+  /* ========== 6. 기록 ========== */
+  table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+  th,td{padding:7px 4px;border-bottom:1px solid var(--line);text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--muted);font-weight:500}
+  .best{color:var(--ok);font-size:13px;margin-bottom:8px}
+
+  /* ========== 7. 보안문자 모달 ========== */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;z-index:50;padding:16px}
+  .box{background:#fff;color:#111;border-radius:16px;width:100%;max-width:360px;padding:20px}
+  .box h3{margin:0 0 4px;font-size:17px}
+  .box p{margin:0 0 14px;font-size:13px;color:#666}
+  .cap-wrap{display:flex;gap:8px;align-items:center}
+  #capCanvas{width:100%;height:80px;border-radius:8px;border:1px solid #ddd;display:block;flex:1}
+  .cap-re{width:44px;height:80px;border:1px solid #ddd;border-radius:8px;background:#f6f6f6;font-size:20px;cursor:pointer}
+  .box input{width:100%;margin-top:12px;padding:14px;font-size:20px;border:2px solid #ddd;border-radius:10px;
+    text-transform:uppercase;letter-spacing:.3em;text-align:center;font-family:ui-monospace,Menlo,monospace}
+  .box input::placeholder{letter-spacing:normal;font-size:16px}
+  .box input:focus{outline:none;border-color:var(--accent)}
+  .box .err{color:#e0273f;font-size:13px;min-height:18px;margin-top:6px;text-align:center}
+  .box .go{width:100%;margin-top:6px;padding:15px;border:0;border-radius:10px;background:var(--accent);color:#fff;font-size:17px;font-weight:800;cursor:pointer}
+
+  /* ========== 7-1. 대기열 모달 ========== */
+  .wait-box{text-align:center;position:relative}
+  .wait-x{position:absolute;top:10px;right:10px;width:34px;height:34px;border:0;border-radius:50%;background:#f0f1f4;color:#555;font-size:18px;line-height:34px;cursor:pointer}
+  .wait-x:active{background:#e2e4ea}
+  .wait-box .spin{width:46px;height:46px;border:5px solid #eee;border-top-color:var(--accent);border-radius:50%;margin:4px auto 14px;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .wait-box .lbl{font-size:13px;color:#777;margin-top:4px}
+  .wait-box .left{font-size:34px;font-weight:900;font-variant-numeric:tabular-nums;margin:2px 0 4px}
+  .wait-bar{height:10px;background:#eee;border-radius:99px;overflow:hidden;margin:10px 0 12px}
+  .wait-bar i{display:block;height:100%;background:var(--accent);width:0}
+  .wait-box .info{font-size:13px;color:#555;line-height:1.7;font-variant-numeric:tabular-nums}
+  .wait-box .info b{color:#e0273f}
+
+  /* ========== 8. 좌석 선택 화면 ========== */
+  .seatpage{position:fixed;inset:0;background:#f4f5f8;color:#111;z-index:40;display:flex;flex-direction:column}
+  .sp-head{background:#fff;border-bottom:1px solid #e3e5ea;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .sp-head .t{font-weight:800;font-size:16px}
+  .sp-head .s{font-size:12px;color:#666;font-variant-numeric:tabular-nums;margin-top:2px}
+  .sp-head .s b{color:#e0273f}
+  .sp-head .x{border:1px solid #ddd;background:#fff;border-radius:8px;padding:8px 10px;font-size:13px;cursor:pointer}
+  .sp-body{flex:1;overflow:auto;padding:12px 12px 20px;max-width:560px;width:100%;margin:0 auto}
+  .floor-tabs{display:flex;gap:6px;margin-bottom:10px}
+  .floor-tabs button{flex:1;padding:10px;border:1px solid #dcdfe6;background:#fff;border-radius:10px;font-weight:700;cursor:pointer;color:#555}
+  .floor-tabs button.sel{background:#111;color:#fff;border-color:#111}
+  .map{background:#fff;border-radius:14px;padding:8px;border:1px solid #e3e5ea}
+  .map svg{width:100%;height:auto;display:block}
+  .map svg .sec{cursor:pointer;transition:opacity .2s}
+  .map svg .sec:active{opacity:.6}
+  .map svg text{pointer-events:none;font-family:inherit}
+  .hint{font-size:12px;color:#777;text-align:center;margin:8px 0}
+  .grades{display:flex;flex-wrap:wrap;gap:6px 12px;font-size:12px;color:#444;margin-top:10px;justify-content:center}
+  .grades span{display:inline-flex;align-items:center;gap:4px}
+  .grades i{width:10px;height:10px;border-radius:2px;display:inline-block}
+
+  .sec-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .sec-head button{border:1px solid #ddd;background:#fff;border-radius:8px;padding:8px 12px;cursor:pointer;font-size:14px}
+  .sec-head .nm{font-weight:800}
+  .sec-head .rm{font-size:12px;color:#666;font-variant-numeric:tabular-nums}
+  .seat-stage{text-align:center;font-size:11px;color:#888;background:#e8eaef;border-radius:6px;padding:4px;margin-bottom:8px;letter-spacing:.2em}
+  .seats{background:#fff;border:1px solid #e3e5ea;border-radius:12px;padding:10px 6px}
+  .srow{display:flex;align-items:center;justify-content:center;gap:2px;margin-bottom:2px}
+  .srow .rl{width:18px;font-size:9px;color:#999;text-align:right;margin-right:3px;flex:none}
+  .seat{flex:1;max-width:22px;aspect-ratio:1;border-radius:2px;background:var(--c);cursor:pointer;min-width:0}
+  .seat.gap{margin-left:5px}
+  .seat.sold{background:#cfd2d9;cursor:default}
+  .seat.none{visibility:hidden;cursor:default}
+  .seat.pick{background:#111;box-shadow:0 0 0 2px #ffcf3a inset}
+
+  .sp-foot{background:#fffbe8;border-bottom:1px solid #e3e5ea;padding:12px 16px;display:flex;gap:10px;align-items:center}
+  .sp-foot .info{flex:1;font-size:14px;font-weight:700}
+  .sp-foot .info small{display:block;font-weight:400;color:#777;font-size:12px}
+  .sp-foot button{padding:14px 18px;border:0;border-radius:10px;background:var(--accent);color:#fff;font-weight:800;font-size:15px;cursor:pointer}
+  .sp-foot button:disabled{background:#c9ccd3;cursor:not-allowed}
+  .toast{position:fixed;left:50%;bottom:40px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;z-index:60;white-space:nowrap}
+
+  /* ========== 9. 결과 모달 ========== */
+  .res .grade{font-size:26px;font-weight:900;text-align:center;margin:4px 0 12px}
+  .res table{font-size:14px;color:#111}
+  .res th,.res td{border-bottom:1px solid #eee;padding:9px 4px}
+  .res th{color:#777;text-align:left}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎫 티켓팅 연습기</h1>
+
+  <!-- 시계 + 예매 버튼 -->
+  <div class="clock" id="clock">00:00:00<span class="ms">.000</span></div>
+  <div class="status" id="status">오픈 시간을 설정하세요</div>
+  <button class="btn-book" id="book" disabled>예매하기</button>
+  <div class="venue-tag" id="venueTag"></div>
+
+  <!-- 대기열 시각화 -->
+  <div class="card">
+    <h2>대기열 (0.001초마다 100명 입장)</h2>
+    <div class="counter">
+      <div><div class="l">내 앞 대기 인원</div><div class="n" id="qnum">0명</div></div>
+      <div style="text-align:right"><div class="l">오픈 후 경과</div><div class="n" id="qtime" style="font-size:20px">0.000초</div></div>
+    </div>
+    <div class="qgrid" id="qgrid"></div>
+    <div class="legend"><span>오픈 0초</span><span>■ 1칸 = 0.1초 = 1만 명</span><span>10초 (100만)</span></div>
+  </div>
+
+  <!-- 설정 -->
+  <div class="card">
+    <h2>설정</h2>
+    <div class="seg" id="venueSeg">
+      <button data-v="baseball" class="sel">⚾ 야구장</button>
+      <button data-v="concert">🎤 콘서트장</button>
+    </div>
+    <select class="stadium" id="stadiumSel"></select>
+    <div class="timeset">
+      <input id="hh" type="number" inputmode="numeric" min="0" max="23" placeholder="시"><span>:</span>
+      <input id="mm" type="number" inputmode="numeric" min="0" max="59" placeholder="분"><span>:</span>
+      <input id="ss" type="number" inputmode="numeric" min="0" max="59" placeholder="초">
+    </div>
+    <div class="row"><button class="primary" id="apply">이 시간으로 설정</button></div>
+    <div class="quick">
+      <button data-add="5">5초 뒤</button>
+      <button data-add="10">10초 뒤</button>
+      <button data-add="30">30초 뒤</button>
+      <button data-add="next">다음 정각 분</button>
+    </div>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <!-- 기록 -->
+  <div class="card">
+    <h2>내 기록</h2>
+    <div class="best" id="best"></div>
+    <table><thead><tr><th>#</th><th>클릭</th><th>총 소요</th><th>결과</th></tr></thead><tbody id="log"></tbody></table>
+    <div class="row"><button id="clearLog">기록 지우기</button></div>
+  </div>
+
+  <p class="notice">좌석은 실제 좌석배치도를 참고해서 만든 연습용 좌석배치도입니다.</p>
+</div>
+
+<!-- 대기열 모달 -->
+<div class="modal hide" id="waitModal">
+  <div class="box wait-box">
+    <button class="wait-x" id="waitClose" aria-label="대기 종료">✕</button>
+    <div class="spin"></div>
+    <h3>접속 대기 중입니다</h3>
+    <p>내 순서가 되면 자동으로 다음 단계로 넘어가요.</p>
+    <div class="lbl">내 앞 대기 인원</div>
+    <div class="left" id="waitLeft">0명</div>
+    <div class="wait-bar"><i id="waitBar"></i></div>
+    <div class="info" id="waitInfo"></div>
+  </div>
+</div>
+
+<!-- 보안문자 모달 -->
+<div class="modal hide" id="capModal">
+  <div class="box">
+    <h3>🔒 보안문자 입력</h3>
+    <p>부정 예매 방지를 위해 아래 문자를 입력해주세요.</p>
+    <div class="cap-wrap">
+      <canvas id="capCanvas" width="480" height="160"></canvas>
+      <button class="cap-re" id="capRe" title="새로고침">↻</button>
+    </div>
+    <input id="capInput" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="6" placeholder="문자 입력">
+    <div class="err" id="capErr"></div>
+    <button class="go" id="capOk">확인</button>
+  </div>
+</div>
+
+<!-- 좌석 선택 화면 -->
+<div class="seatpage hide" id="seatPage">
+  <div class="sp-head">
+    <div>
+      <div class="t" id="spTitle">좌석 선택</div>
+      <div class="s" id="spSub"></div>
+    </div>
+    <button class="x" id="spExit">나가기</button>
+  </div>
+  <div class="sp-foot">
+    <div class="info" id="pickInfo">좌석을 선택하세요<small>최대 4석</small></div>
+    <button id="confirmSeat" disabled>예매하기</button>
+  </div>
+  <div class="sp-body">
+    <!-- 구역 지도 -->
+    <div id="overview">
+      <div class="floor-tabs hide" id="floorTabs">
+        <button data-f="1" class="sel">1층</button>
+        <button data-f="2">2층</button>
+      </div>
+      <div class="map" id="map"></div>
+      <div class="hint">구역을 눌러 좌석을 고르세요 · 색이 옅을수록 잔여석이 적어요</div>
+      <div class="grades" id="grades"></div>
+      <div class="sp-notice">좌석은 실제 좌석배치도를 참고해서 만든 연습용 좌석배치도입니다.</div>
+    </div>
+    <!-- 구역 상세 좌석 -->
+    <div id="sectionView" class="hide">
+      <div class="sec-head">
+        <button id="backMap">← 구역</button>
+        <div><div class="nm" id="secName"></div><div class="rm" id="secRemain"></div></div>
+      </div>
+      <div class="seat-stage" id="seatStage">STAGE</div>
+      <div class="seats" id="seats"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 결과 모달 -->
+<div class="modal hide" id="resModal">
+  <div class="box res">
+    <div class="grade" id="resGrade"></div>
+    <table id="resTable"></table>
+    <button class="go" id="resClose" style="margin-top:14px">확인</button>
+  </div>
+</div>
+
+<div class="toast hide" id="toast"></div>
+
+<script>
+/* =========================================================
+   0. 상수 / 유틸
+   ========================================================= */
+const PER_MS     = 100;     // 대기열: 0.001초마다 100명 (0.1초면 1만 명)
+const Q_CELLS    = 100;     // 대기열 그리드 칸 수 (10초)
+const DRAIN_RATE = 1000;   // 대기열: 1초에 1,000명씩 빠짐
+const SELLOUT_SEC = 13;     // 전석 매진까지 걸리는 시간(초) → 판매 속도 = 총 좌석 ÷ 13
+let SELL_RATE = 750;        // 1초에 팔리는 좌석 수 (공연장마다 다시 계산)
+let secOf;                  // 좌석 번호 → 구역 번호
+const $ = id => document.getElementById(id);
+const now = () => performance.timeOrigin + performance.now();
+const pad = (n, l = 2) => String(n).padStart(l, '0');
+const fmt = n => n.toLocaleString('ko-KR');
+const rad = d => d * Math.PI / 180;
+
+/* =========================================================
+   1. 상태
+   ========================================================= */
+let venue = 'baseball';
+let target = null;       // 오픈 시각
+let clickedAt = null;    // 예매하기 누른 시각
+let capOkAt = null;      // 보안문자 통과 시각
+let waitStartAt = null, waitEndAt = null;  // 대기열 시작/끝 시각
+let phase = 'idle';      // idle → captcha → seat → done
+let queueNo = 0, queueAhead = 0;
+
+let sections = [];       // 구역 정보
+let TOTAL = 0;           // 총 좌석 (공연장 실제 좌석 수)
+let sold, soldCount;
+
+let floor = 1;           // 콘서트 층
+let openSec = -1;        // 열려 있는 구역
+const MAX_PICK = 4;      // 한 번에 고를 수 있는 최대 좌석 수 (1인 4매)
+let picks = [];          // 내가 고른 좌석 인덱스들
+
+let records = [];
+try { records = JSON.parse(localStorage.getItem('tkt-records-v2') || '[]'); } catch (e) {}
+
+/* =========================================================
+   2. 공연장 구역 만들기
+   ========================================================= */
+/* ---------- 야구장 데이터 (실제 구장 배치를 참고한 연습용) ----------
+   in  = 1층 내야 (13구역), out = 2층 이상 내야 (7구역), of = 외야 (5구역)  → 총 25구역, 좌석은 실제 좌석 수를 구역 넓이 비율로 나눔
+   각 구역은 홈플레이트 뒤 중앙에서 떨어진 각도(d)로 등급이 정해짐
+   {c, o} 형태는 홈 응원석 쪽(c)과 반대쪽(o)이 다른 경우            */
+const C = { purple:'#6b3fd4', teal:'#0f9b8e', blue:'#2f6fe0', sky:'#4ba3e3', orange:'#f08a24', red:'#e0453a',
+            pink:'#e2559b', navy:'#2a3a8f', gray:'#7d8597', green:'#2e9e5b', lime:'#6dbf4b', brown:'#b9773a', gold:'#c9a227' };
+const STADIUMS = {
+  seoul_jamsil: { name:'서울 잠실야구장', seats:23750, cheer:'1루',
+    in:[[8,'프리미엄석',C.purple],[25,'테이블석',C.teal],[42,'블루석',C.blue],[60,'오렌지석',C.orange],[76,'레드석',C.red],[999,'익사이팅존',C.pink]],
+    out:[[999,'네이비석',C.navy]], of:[[999,'외야 그린석',C.green]] },
+  seoul_gocheok: { name:'서울 고척야구장', seats:16000, cheer:'1루', dome:true,
+    in:[[8,'다이아몬드석',C.purple],[25,'테이블석',C.teal],[60,{c:['1루 응원석',C.red],o:['1층 지정석',C.blue]}],[999,'1층 지정석',C.blue]],
+    out:[[35,'2층 지정석',C.orange],[999,'3·4층 지정석',C.navy]], of:[[999,'외야 지정석',C.green]] },
+  incheon: { name:'인천 문학야구장', seats:23000, cheer:'1루',
+    in:[[8,'라이브존',C.purple],[25,'테이블석',C.teal],[42,'내야 필드석',C.blue],[60,{c:['응원지정석',C.red],o:['원정응원석',C.gray]}],[999,'내야 필드석',C.blue]],
+    out:[[999,'내야 상단석',C.navy]], of:[[20,'외야 잔디석',C.lime],[999,'외야 바비큐존',C.brown]] },
+  suwon: { name:'수원야구장', seats:18700, cheer:'1루',
+    in:[[8,'중앙지정석',C.purple],[25,'테이블석',C.teal],[60,{c:['응원지정석',C.red],o:['원정응원석',C.gray]}],[999,'내야지정석',C.blue]],
+    out:[[999,'스카이존',C.navy]], of:[[999,'외야 잔디자유석',C.lime]] },
+  daejeon: { name:'대전야구장', seats:17000, cheer:'1루', monster:true,
+    in:[[8,'포수후면석',C.purple],[25,'중앙탁자석',C.teal],[60,{c:['응원단석',C.orange],o:['원정응원석',C.gray]}],[999,'내야지정석',C.blue]],
+    out:[[999,'내야 2층 지정석',C.navy]], of:[[999,'외야 지정석',C.green]] },
+  gwangju: { name:'광주야구장', seats:20500, cheer:'3루',
+    in:[[8,'챔피언석',C.purple],[25,'중앙테이블석',C.teal],[60,{c:['응원단석',C.red],o:['내야 1층석',C.blue]}],[999,'내야 1층석',C.blue]],
+    out:[[35,'내야 2층석',C.navy],[999,'가족석',C.gold]], of:[[999,'외야석',C.green]] },
+  daegu: { name:'대구야구장', seats:24000, cheer:'3루', octagon:true,
+    in:[[8,'VIP석',C.purple],[25,'테이블석',C.teal],[60,{c:['블루존(응원석)',C.blue],o:['원정응원석',C.gray]}],[999,'내야지정석',C.sky]],
+    out:[[999,'SKY 상단석',C.navy]], of:[[20,'잔디 그린존',C.lime],[999,'외야지정석',C.green]] },
+  busan: { name:'부산 사직야구장', seats:22669, cheer:'1루',
+    in:[[8,'중앙탁자석',C.purple],[25,'와이드탁자석',C.teal],[60,{c:['응원탁자석',C.orange],o:['내야탁자석',C.gold]}],[999,'내야필드석',C.blue]],
+    out:[[35,'중앙상단석',C.sky],[999,'내야상단석',C.navy]], of:[[999,'외야석',C.green]] },
+  changwon: { name:'창원야구장', seats:18128, cheer:'1루',
+    in:[[8,'프리미엄석',C.purple],[25,'테이블석',C.teal],[60,{c:['응원석',C.red],o:['원정석',C.gray]}],[999,'내야석',C.blue]],
+    out:[[999,'내야 상단석',C.navy]], of:[[20,'외야 잔디석',C.lime],[999,'외야 피크닉석',C.brown]] },
+};
+let stadiumId = 'seoul_jamsil';
+try { const sv = localStorage.getItem('tkt-stadium'); if (sv && STADIUMS[sv]) stadiumId = sv; } catch (e) {}
+
+function zoneOf(list, d, side, cheer) {
+  for (const [lim, z, col] of list) if (d < lim) {
+    if (typeof z === 'string') return [z, col];
+    return side === cheer ? z.c : z.o;
+  }
+}
+function buildBaseball() {
+  const st = STADIUMS[stadiumId], out = [];
+  const add = (tier, n, start, end, r1, r2, num, list, centerAt) => {
+    const step = (end - start) / n;
+    for (let i = 0; i < n; i++) {
+      const a1 = start + i * step + 0.7, a2 = start + (i + 1) * step - 0.7, mid = (a1 + a2) / 2;
+      const d = Math.abs(mid - centerAt);
+      const side = mid < 90 ? '1루' : '3루';
+      const [g, col] = zoneOf(list, d, side, st.cheer);
+      out.push({ name: String(num + i), grade: g, color: col, floor: 1,
+        shape: { t: 'arc', cx: 200, cy: 195, r1, r2, a1, a2 } });
+    }
+  };
+  add('in', 13, -20, 200, 120, 153, 101, st.in, 90);   // 1층 내야
+  add('out', 7, -20, 200, 157, 192, 201, st.out, 90);  // 2층 이상
+  add('of', 5, 207, 333, 120, 192, 301, st.of, 270);   // 외야
+  return out;
+}
+
+/* ---------- 콘서트장 데이터 (실제 공연장 구조를 참고한 연습용) ----------
+   type: arena(실내 아레나) / stadium(경기장) / theater(극장형) / hall(전시장 스탠딩)
+   seats = 실제 좌석 수(구역 넓이 비율로 나눔)                               */
+const HALLS = {
+  gymnastics: { name:'서울 올림픽공원 체조경기장', seats:15000, type:'arena', cols:3, rows:3, n1:8, n2:8 },
+  handball:   { name:'서울 올림픽공원 핸드볼경기장', seats:5000, type:'arena', cols:3, rows:2, n1:9, n2:10 },
+  olympichall:{ name:'서울 올림픽공원 올림픽홀', seats:3000, type:'theater', b1:[[70,125],[130,185],[190,245]], c1:4, b2:[[262,297,7],[301,336,6]] },
+  jamsilin:   { name:'서울 잠실 실내체육관', seats:6000, type:'arena', cols:4, rows:2, n1:7, n2:10 },
+  jamsilmain: { name:'서울 잠실 주경기장', seats:48500, type:'stadium', cols:4, rows:3, n1:7, n2:6 },
+  sangam:     { name:'서울 상암 월드컵경기장', seats:50000, type:'stadium', cols:4, rows:4, n1:5, n2:4 },
+  goyang:     { name:'고양 종합운동장', seats:50000, type:'stadium', cols:3, rows:4, n1:7, n2:6 },
+  yeongjong:  { name:'인천 영종도 아레나', seats:15000, type:'arena', cols:4, rows:3, n1:6, n2:7 },
+  hannam:     { name:'서울 한남동 공연장', seats:1400, type:'theater', b1:[[60,105],[110,155],[160,205],[210,255]], c1:4, b2:[[272,336,9]] },
+  busanhall:  { name:'부산 해운대 오디토리움', seats:4002, type:'theater', b1:[[62,102],[106,146],[150,190],[194,234],[238,278]], c1:5, b2:[] },
+};
+let hallId = 'gymnastics';
+try { const hv = localStorage.getItem('tkt-hall'); if (hv && HALLS[hv]) hallId = hv; } catch (e) {}
+const G = { VIP:['VIP석','#7b4fd6'], R:['R석','#e0453a'], S:['S석','#2f6fe0'], A:['A석','#2e9e5b'],
+            P:['스탠딩 P석','#7b4fd6'], SR:['스탠딩 R석','#e0453a'], SS:['스탠딩 S석','#2f6fe0'] };
+// 공연장 형태별 기하 정보
+const GEO = {
+  arena:   { cx:200, cy:150, fx:125, fy:72, fw:150, fh:150, r1:[122,156], r2:[162,196], a:[-20,200], vh1:316, vh2:354 },
+  stadium: { cx:200, cy:200, fx:128, fy:104, fw:144, fh:160, r1:[140,168], r2:[172,198], a:[-55,235], vh1:400, vh2:400 },
+  theater: { cx:200, cy:10, vh1:290, vh2:352 },
+  hall:    { vh1:345 },
+};
+
+function buildConcert() {
+  const h = HALLS[hallId], g = GEO[h.type], out = [];
+  const push = (name, key, floor, shape) => out.push({ name, grade: G[key][0], color: G[key][1], floor, shape });
+  const ring = (n, r, floor, num, keyOf) => {
+    const step = (g.a[1] - g.a[0]) / n;
+    for (let i = 0; i < n; i++) {
+      const a1 = g.a[0] + i * step + 0.8, a2 = g.a[0] + (i + 1) * step - 0.8;
+      push(String(num + i), keyOf(Math.abs((a1 + a2) / 2 - 90)), floor, { t:'arc', cx:g.cx, cy:g.cy, r1:r[0], r2:r[1], a1, a2 });
+    }
+  };
+  const grid = (cols, rows, x, y, w, h2, gap, keyOfRow, prefix) => {
+    const bw = (w - (cols - 1) * gap) / cols, bh = (h2 - (rows - 1) * gap) / rows;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++)
+      push(prefix + (r * cols + c + 1), keyOfRow(r), 1, { t:'rect', x: x + c * (bw + gap), y: y + r * (bh + gap), w: bw, h: bh });
+  };
+  if (h.type === 'arena' || h.type === 'stadium') {
+    grid(h.cols, h.rows, g.fx, g.fy, g.fw, g.fh, 4, r => r === 0 ? 'VIP' : r === 1 ? 'R' : 'S', 'F');
+    if (h.type === 'arena') {
+      ring(h.n1, g.r1, 1, 101, d => d < 45 ? 'R' : 'S');
+      ring(h.n2, g.r2, 2, 201, d => d < 45 ? 'S' : 'A');
+    } else {
+      ring(h.n1, g.r1, 1, 101, d => d < 60 ? 'S' : 'A');
+      ring(h.n2, g.r2, 2, 201, () => 'A');
+    }
+  } else if (h.type === 'theater') {
+    let num = 101;
+    h.b1.forEach((rr, bi) => {
+      const step = 80 / h.c1;
+      for (let c = 0; c < h.c1; c++) {
+        const a1 = 50 + c * step + 0.8, a2 = 50 + (c + 1) * step - 0.8;
+        push(String(num++), bi === 0 ? 'VIP' : bi === 1 ? 'R' : 'S', 1, { t:'arc', cx:g.cx, cy:g.cy, r1:rr[0], r2:rr[1], a1, a2 });
+      }
+    });
+    num = 201;
+    h.b2.forEach(([r1, r2, n], bi) => {
+      const step = 70 / n;
+      for (let c = 0; c < n; c++) {
+        const a1 = 55 + c * step + 0.6, a2 = 55 + (c + 1) * step - 0.6;
+        const d = Math.abs((a1 + a2) / 2 - 90);
+        push(String(num++), bi === 0 && d < 25 ? 'S' : 'A', 2, { t:'arc', cx:g.cx, cy:g.cy, r1, r2, a1, a2 });
+      }
+    });
+  } else { // hall: 스탠딩 구역 + 뒤쪽 지정석
+    grid(h.cols, h.rows, 30, 70, 340, 200, 8, r => r === 0 ? 'P' : r === 1 ? 'SR' : 'SS', 'F');
+    const bw = (340 - (h.rear - 1) * 8) / h.rear;
+    for (let i = 0; i < h.rear; i++) push('B' + (i + 1), 'A', 1, { t:'rect', x: 30 + i * (bw + 8), y: 292, w: bw, h: 40 });
+  }
+  return out;
+}
+
+const placeName = () => venue === 'baseball' ? STADIUMS[stadiumId].name : HALLS[hallId].name;
+function fillPlaceSelect() {
+  const list = venue === 'baseball' ? STADIUMS : HALLS;
+  $('stadiumSel').innerHTML = Object.entries(list).map(([id, v]) => `<option value="${id}">${v.name}</option>`).join('');
+  $('stadiumSel').value = venue === 'baseball' ? stadiumId : hallId;
+}
+function setupVenue() {
+  sections = venue === 'baseball' ? buildBaseball() : buildConcert();
+  // 실제 좌석 수를 구역 넓이에 비례해서 나눔
+  TOTAL = venue === 'baseball' ? STADIUMS[stadiumId].seats : HALLS[hallId].seats;
+  SELL_RATE = TOTAL / SELLOUT_SEC;
+  const area = sh => sh.t === 'rect' ? sh.w * sh.h : rad(sh.a2 - sh.a1) / 2 * (sh.r2 * sh.r2 - sh.r1 * sh.r1);
+  const w = sections.map(x => area(x.shape)), wsum = w.reduce((a, b) => a + b, 0);
+  let given = 0;
+  sections.forEach((x, i) => { x.size = Math.max(1, Math.floor(TOTAL * w[i] / wsum)); given += x.size; });
+  for (let i = 0; given < TOTAL; i = (i + 1) % sections.length) { sections[i].size++; given++; }
+  let base = 0;
+  secOf = new Uint16Array(TOTAL);
+  sections.forEach((x, i) => {
+    x.base = base;
+    x.cols = Math.max(8, Math.min(30, Math.round(Math.sqrt(x.size * 1.6))));
+    x.rows = Math.ceil(x.size / x.cols);
+    secOf.fill(i, base, base + x.size);
+    base += x.size;
+  });
+  resetSeats();
+  $('venueTag').textContent = (venue === 'baseball' ? '⚾ ' : '🎤 ') + placeName() + ` · 총 ${fmt(TOTAL)}석`;
+  fillPlaceSelect();
+}
+
+/* =========================================================
+   3. 좌석 판매 (오픈 후 SELLOUT_SEC초에 전석 매진)
+   - 인기 구역일수록, 그리고 앞열일수록 먼저 팔림
+   - 약간의 랜덤을 섞어서 매번 조금씩 다르게 팔림
+   ========================================================= */
+// 구역 등급 이름으로 인기도(0~1)를 정함. 위에서부터 먼저 맞는 규칙 적용
+const POPULARITY = [
+  [/원정/, 0.45],
+  [/응원|블루존|오렌지석/, 1.0],                                   // 응원석
+  [/VIP|프리미엄|다이아몬드|라이브존|챔피언|포수후면|중앙지정|테이블|탁자/, 0.9], // 포수 뒤·테이블
+  [/스탠딩 P/, 1.0], [/스탠딩 R|^R석/, 0.75], [/스탠딩 S|^S석/, 0.5], [/^A석/, 0.3], // 콘서트
+  [/익사이팅|블루석/, 0.8],
+  [/1층|필드|레드석|내야지정|내야석/, 0.6],
+  [/잔디|그린존|바비큐|피크닉/, 0.5],
+  [/상단|네이비|2층|3·4층|SKY|스카이|가족/, 0.3],
+  [/외야/, 0.35],
+];
+const popOf = grade => { for (const [re, v] of POPULARITY) if (re.test(grade)) return v; return 0.5; };
+const POP_WEIGHT = 3;     // 인기도 영향 (클수록 인기 구역이 확실히 먼저 팔림)
+const ROW_WEIGHT = 1.5;   // 앞열 영향
+const NOISE      = 1.2;   // 랜덤 섞임 정도
+let sellOrder, sellPtr, unsoldLen;
+function resetSeats() {
+  sold = new Uint8Array(TOTAL);
+  soldCount = 0; unsoldLen = TOTAL; sellPtr = 0;
+  sections.forEach(x => x.pop = popOf(x.grade));
+  const keys = new Float32Array(TOTAL);
+  for (let i = 0; i < TOTAL; i++) {
+    const sc = sections[secOf[i]];
+    const rowFrac = Math.floor((i - sc.base) / sc.cols) / Math.max(1, sc.rows - 1);   // 0 = 맨 앞열, 1 = 맨 뒷열
+    keys[i] = (1 - sc.pop) * POP_WEIGHT + rowFrac * ROW_WEIGHT + Math.random() * NOISE;
+  }
+  sellOrder = Array.from({ length: TOTAL }, (_, i) => i).sort((a, b) => keys[a] - keys[b]);
+}
+function markSold(idx) {
+  if (sold[idx]) return;
+  sold[idx] = 1; soldCount++; unsoldLen--;
+}
+function sellUpTo(t) {
+  if (!target || t < target) return [];
+  const want = Math.min(TOTAL, Math.floor((t - target) / 1000 * SELL_RATE));
+  const changed = [];
+  while (soldCount < want && sellPtr < TOTAL) {
+    const idx = sellOrder[sellPtr++];
+    if (sold[idx]) continue;          // 내가 이미 산 좌석은 건너뜀
+    markSold(idx); changed.push(idx);
+  }
+  return changed;
+}
+const remainOf = s => { const x = sections[s]; let r = 0; for (let i = x.base; i < x.base + x.size; i++) if (!sold[i]) r++; return r; };
+
+/* =========================================================
+   4. 메인 화면: 시간 설정 / 예매하기 / 대기열
+   ========================================================= */
+const qgrid = $('qgrid');
+for (let i = 0; i < Q_CELLS; i++) qgrid.appendChild(document.createElement('i'));
+const qcells = qgrid.children;
+let qFilled = -1;
+
+function setTarget(t) {
+  target = t; clickedAt = null; capOkAt = null; phase = 'idle'; qFilled = -1; picks = [];
+  for (const c of qcells) c.className = '';
+  resetSeats();
+  closeAllOverlays();
+  const b = $('book'); b.className = 'btn-book'; b.disabled = true; b.textContent = '예매하기';
+  const d = new Date(t);
+  $('hh').value = pad(d.getHours()); $('mm').value = pad(d.getMinutes()); $('ss').value = pad(d.getSeconds());
+  $('msg').textContent = '';
+}
+
+function onBook() {
+  if (!target || phase !== 'idle') return;
+  const t = now();
+  if (t < target) return;
+  clickedAt = t;
+  const sec = (t - target) / 1000;
+  queueAhead = Math.floor(sec * 1000) * PER_MS;                   // 1ms마다 100명씩 앞에 쌓임
+  queueNo = queueAhead + 1 + Math.floor(Math.random() * PER_MS);   // 같은 1ms 안에서는 랜덤 순서
+  const idx = Math.floor(sec * 10);
+  if (idx < Q_CELLS) qcells[idx].className = 'me';
+  $('qnum').textContent = fmt(queueAhead) + '명';
+  $('qtime').textContent = sec.toFixed(3) + '초';
+  const b = $('book'); b.className = 'btn-book done'; b.textContent = '예매 진행 중';
+  // 내 대기번호만큼 대기열 생성 → 1초에 1,000명씩 빠짐
+  phase = 'wait'; waitStartAt = t;
+  waitEndAt = t + (queueNo - 1) / DRAIN_RATE * 1000;
+  $('waitModal').classList.remove('hide');
+}
+
+/* =========================================================
+   5. 보안문자
+   ========================================================= */
+const CAP_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+let capText = '';
+function drawCaptcha() {
+  capText = Array.from({ length: 6 }, () => CAP_CHARS[Math.floor(Math.random() * CAP_CHARS.length)]).join('');
+  const cv = $('capCanvas'), ctx = cv.getContext('2d'), W = cv.width, H = cv.height;
+  ctx.fillStyle = '#f3f1ea'; ctx.fillRect(0, 0, W, H);
+  for (let i = 0; i < 90; i++) {           // 잡음 점
+    ctx.fillStyle = `hsla(${Math.random() * 360},40%,50%,.35)`;
+    ctx.fillRect(Math.random() * W, Math.random() * H, 3, 3);
+  }
+  const cw = W / 7;
+  for (let i = 0; i < 6; i++) {            // 글자
+    ctx.save();
+    ctx.translate(cw * (i + 0.9), H / 2 + (Math.random() - 0.5) * 24);
+    ctx.rotate((Math.random() - 0.5) * 0.7);
+    ctx.font = `bold ${70 + Math.random() * 18}px Georgia, serif`;
+    ctx.fillStyle = `hsl(${Math.random() * 360},55%,${25 + Math.random() * 15}%)`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(capText[i], 0, 0);
+    ctx.restore();
+  }
+  for (let i = 0; i < 5; i++) {            // 방해선
+    ctx.strokeStyle = `hsla(${Math.random() * 360},50%,40%,.6)`; ctx.lineWidth = 2 + Math.random() * 3;
+    ctx.beginPath(); ctx.moveTo(0, Math.random() * H);
+    ctx.bezierCurveTo(W / 3, Math.random() * H, W * 2 / 3, Math.random() * H, W, Math.random() * H); ctx.stroke();
+  }
+}
+function openCaptcha() {
+  drawCaptcha();
+  $('capInput').value = ''; $('capErr').textContent = '';
+  $('capModal').classList.remove('hide');
+  setTimeout(() => $('capInput').focus(), 30);
+}
+function checkCaptcha() {
+  const v = $('capInput').value.trim().toUpperCase();
+  if (v !== capText) {
+    $('capErr').textContent = '보안문자가 일치하지 않아요. 다시 입력해주세요.';
+    drawCaptcha(); $('capInput').value = ''; $('capInput').focus();
+    return;
+  }
+  capOkAt = now(); phase = 'seat';
+  $('capModal').classList.add('hide');
+  openSeatPage();
+}
+
+/* =========================================================
+   6. 좌석 선택 화면 - 구역 지도 (SVG)
+   ========================================================= */
+function arcPath(s) {
+  const p = (r, a) => `${(s.cx + r * Math.cos(rad(a))).toFixed(1)},${(s.cy + r * Math.sin(rad(a))).toFixed(1)}`;
+  const lg = s.a2 - s.a1 > 180 ? 1 : 0;
+  return `M${p(s.r2, s.a1)} A${s.r2},${s.r2} 0 ${lg} 1 ${p(s.r2, s.a2)} L${p(s.r1, s.a2)} A${s.r1},${s.r1} 0 ${lg} 0 ${p(s.r1, s.a1)}Z`;
+}
+function labelPos(s) {
+  if (s.t === 'rect') return [s.x + s.w / 2, s.y + s.h / 2];
+  const a = rad((s.a1 + s.a2) / 2), r = (s.r1 + s.r2) / 2;
+  return [s.cx + r * Math.cos(a), s.cy + r * Math.sin(a)];
+}
+
+function stadiumDeco() {
+  const st = STADIUMS[stadiumId];
+  let h = '';
+  if (st.dome) h += `<circle cx="200" cy="195" r="197" fill="none" stroke="#9aa3b5" stroke-width="2" stroke-dasharray="6 4"/>
+      <text x="200" y="232" text-anchor="middle" font-size="9" fill="#e8f3e8" font-weight="700">DOME</text>`;
+  if (st.octagon) {
+    const pts = Array.from({ length: 8 }, (_, i) => { const a = rad(i * 45 + 22.5); return `${(200 + 209 * Math.cos(a)).toFixed(1)},${(195 + 209 * Math.sin(a)).toFixed(1)}`; }).join(' ');
+    h += `<polygon points="${pts}" fill="none" stroke="#9aa3b5" stroke-width="2"/>`;
+  }
+  if (st.monster) {
+    const p = a => `${(200 + 113 * Math.cos(rad(a))).toFixed(1)},${(195 + 113 * Math.sin(rad(a))).toFixed(1)}`;
+    h += `<path d="M${p(295)} A113,113 0 0 1 ${p(330)}" fill="none" stroke="#1d5c2a" stroke-width="7"/>
+      <text x="${(200 + 98 * Math.cos(rad(312))).toFixed(1)}" y="${(195 + 98 * Math.sin(rad(312))).toFixed(1)}" text-anchor="middle" font-size="7" fill="#fff" font-weight="700">몬스터월</text>`;
+  }
+  // 응원석 위치 표시
+  const cx = st.cheer === '1루' ? 300 : 100;
+  h += `<text x="${cx}" y="394" text-anchor="middle" font-size="9" fill="#999">${st.cheer} 홈 응원석</text>`;
+  return h;
+}
+
+function fieldBackground() {
+  if (venue === 'baseball') {
+    const cx = 200, cy = 195, hx = 200, hy = 287;   // 홈플레이트
+    // 파울라인이 잔디 끝에 닿는 지점
+    const t = 156, k = Math.SQRT1_2;
+    return `
+      <circle cx="${cx}" cy="${cy}" r="114" fill="#3f8f4a"/>
+      <path d="M${hx},${hy} L${hx - 62},${hy - 62} A88,88 0 0 1 ${hx + 62},${hy - 62} Z" fill="#c8915a"/>
+      <rect x="${hx - 30}" y="${hy - 76}" width="60" height="60" transform="rotate(45 ${hx} ${hy - 46})" fill="#3f8f4a"/>
+      <line x1="${hx}" y1="${hy}" x2="${hx - t * k}" y2="${hy - t * k}" stroke="#fff" stroke-width="1.2"/>
+      <line x1="${hx}" y1="${hy}" x2="${hx + t * k}" y2="${hy - t * k}" stroke="#fff" stroke-width="1.2"/>
+      ${[[0, 0], [46, -46], [0, -92], [-46, -46]].map(([dx, dy]) =>
+        `<rect x="${hx + dx - 3}" y="${hy + dy - 3}" width="6" height="6" fill="#fff" transform="rotate(45 ${hx + dx} ${hy + dy})"/>`).join('')}
+      <circle cx="${hx}" cy="${hy - 46}" r="6" fill="#c8915a"/>
+      ${stadiumDeco()}
+      <rect x="170" y="8" width="60" height="16" rx="3" fill="#222"/>
+      <text x="200" y="19.5" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">전광판</text>
+      <text x="${hx}" y="${hy + 16}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">HOME</text>`;
+  }
+  const h = HALLS[hallId], g = GEO[h.type];
+  const stageBox = (x, y, w, hh) => `<rect x="${x}" y="${y}" width="${w}" height="${hh}" rx="6" fill="#111"/>
+      <text x="${x + w / 2}" y="${y + hh / 2 + 4.5}" text-anchor="middle" font-size="13" fill="#fff" font-weight="800" letter-spacing="4">STAGE</text>`;
+  if (h.type === 'arena') {
+    const st = stageBox(120, 14, 160, 40);
+    return floor === 1 ? st : st + `<rect x="${g.fx - 30}" y="${g.fy - 10}" width="${g.fw + 60}" height="${g.fh + 60}" rx="60" fill="#eceef2"/>
+      <text x="200" y="${g.cy + 4}" text-anchor="middle" font-size="13" fill="#aaa" font-weight="700">플로어 · 1층</text>`;
+  }
+  if (h.type === 'stadium') {
+    const base = `<circle cx="${g.cx}" cy="${g.cy}" r="136" fill="${floor === 1 ? '#3f8f4a' : '#e3e8e3'}"/>` + stageBox(140, 66, 120, 28);
+    return floor === 1 ? base : base + `<text x="200" y="${g.cy + 30}" text-anchor="middle" font-size="13" fill="#aaa" font-weight="700">그라운드 · 1층</text>`;
+  }
+  if (h.type === 'theater') {
+    const st = stageBox(140, 0, 120, 26);
+    if (floor === 1) return st;
+    const last = h.b1[h.b1.length - 1][1];
+    const p = (r, a) => `${(g.cx + r * Math.cos(rad(a))).toFixed(1)},${(g.cy + r * Math.sin(rad(a))).toFixed(1)}`;
+    return st + `<path d="M${p(last, 50)} A${last},${last} 0 0 1 ${p(last, 130)} L${p(h.b1[0][0], 130)} A${h.b1[0][0]},${h.b1[0][0]} 0 0 0 ${p(h.b1[0][0], 50)}Z" fill="#eceef2"/>
+      <text x="200" y="${g.cy + last * 0.62}" text-anchor="middle" font-size="13" fill="#aaa" font-weight="700">1층</text>`;
+  }
+  return stageBox(110, 12, 180, 40) + `<rect x="170" y="276" width="60" height="12" rx="3" fill="#ddd"/>
+      <text x="200" y="285" text-anchor="middle" font-size="8" fill="#666">음향 콘솔</text>`;
+}
+
+function renderMap() {
+  const gg = GEO[HALLS[hallId].type];
+  const vh = venue === 'baseball' ? 400 : (floor === 1 ? gg.vh1 : gg.vh2);
+  let html = `<svg viewBox="0 0 400 ${vh}" xmlns="http://www.w3.org/2000/svg">` + fieldBackground();
+  sections.forEach((sec, i) => {
+    if (sec.floor !== floor) return;
+    const s = sec.shape;
+    const shapeAttr = s.t === 'arc' ? `<path d="${arcPath(s)}"` : `<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" rx="4"`;
+    const [lx, ly] = labelPos(s);
+    html += `<g class="sec" data-i="${i}">${shapeAttr} fill="${sec.color}" id="secShape${i}"/>
+      <text x="${lx}" y="${ly - 3}" text-anchor="middle" font-size="9" font-weight="800" fill="#fff">${sec.name}</text>
+      <text x="${lx}" y="${ly + 8}" text-anchor="middle" font-size="8" fill="#fff" id="secCnt${i}"></text></g>`;
+  });
+  html += '</svg>';
+  $('map').innerHTML = html;
+  $('map').querySelectorAll('.sec').forEach(g => g.addEventListener('click', () => openSection(+g.dataset.i)));
+  updateMapCounts();
+  // 범례
+  const seen = {};
+  sections.forEach(s => seen[s.grade] = s.color);
+  $('grades').innerHTML = Object.entries(seen).map(([g, c]) => `<span><i style="background:${c}"></i>${g}</span>`).join('') +
+    `<span><i style="background:#cfd2d9"></i>매진</span>`;
+}
+
+function updateMapCounts() {
+  sections.forEach((sec, i) => {
+    if (sec.floor !== floor) return;
+    const shp = $('secShape' + i), cnt = $('secCnt' + i);
+    if (!shp) return;
+    const r = remainOf(i);
+    shp.setAttribute('fill', r === 0 ? '#cfd2d9' : sec.color);
+    shp.style.opacity = r === 0 ? 1 : (0.3 + 0.7 * r / sec.size).toFixed(2);
+    cnt.textContent = r === 0 ? '매진' : fmt(r);
+  });
+}
+
+/* =========================================================
+   7. 좌석 선택 화면 - 구역 안 좌석
+   ========================================================= */
+function openSection(i) {
+  openSec = i;
+  const sec = sections[i];
+  $('overview').classList.add('hide');
+  $('sectionView').classList.remove('hide');
+  $('secName').textContent = `${sec.name}구역 · ${sec.grade}`;
+  $('seatStage').textContent = venue === 'baseball' ? 'GROUND 방향' : 'STAGE 방향';
+  let html = '';
+  const g1 = Math.floor(sec.cols / 3), g2 = Math.floor(sec.cols * 2 / 3);
+  for (let r = 0; r < sec.rows; r++) {
+    html += `<div class="srow"><span class="rl">${r + 1}</span>`;
+    for (let c = 0; c < sec.cols; c++) {
+      const k = r * sec.cols + c, idx = sec.base + k;
+      const gap = sec.cols >= 15 && (c === g1 || c === g2) ? ' gap' : '';
+      if (k >= sec.size) { html += `<div class="seat none${gap}"></div>`; continue; }
+      const cls = 'seat' + gap + (sold[idx] ? ' sold' : '') + (picks.includes(idx) ? ' pick' : '');
+      html += `<div class="${cls}" data-s="${idx}" style="--c:${sec.color}"></div>`;
+    }
+    html += '</div>';
+  }
+  $('seats').innerHTML = html;
+  $('secRemain').textContent = `잔여 ${fmt(remainOf(i))}석 / ${fmt(sec.size)}석`;
+}
+$('seats').addEventListener('click', e => {
+  const el = e.target.closest('.seat');
+  if (!el || el.classList.contains('sold') || el.classList.contains('none')) return;
+  const idx = +el.dataset.s;
+  if (picks.includes(idx)) {                       // 다시 누르면 선택 취소
+    picks = picks.filter(x => x !== idx); el.classList.remove('pick');
+  } else {
+    if (picks.length >= MAX_PICK) { toast(`최대 ${MAX_PICK}석까지 선택할 수 있어요`); return; }
+    picks.push(idx); el.classList.add('pick');
+  }
+  updatePickInfo();
+});
+function seatLabel(idx) {
+  const sec = sections[secOf[idx]], k = idx - sec.base;
+  const fl = venue === 'concert' ? sec.floor + '층 ' : '';
+  return `${fl}${sec.name}구역 ${Math.floor(k / sec.cols) + 1}열 ${k % sec.cols + 1}번`;
+}
+function updatePickInfo() {
+  if (!picks.length) {
+    $('pickInfo').innerHTML = `좌석을 선택하세요<small>최대 ${MAX_PICK}석</small>`;
+    $('confirmSeat').disabled = true; $('confirmSeat').textContent = '예매하기'; return;
+  }
+  const first = seatLabel(picks[0]);
+  $('pickInfo').innerHTML = (picks.length === 1 ? first : `${first} 외 ${picks.length - 1}석`) +
+    `<small>${picks.length}석 선택 · 최대 ${MAX_PICK}석</small>`;
+  $('confirmSeat').disabled = false; $('confirmSeat').textContent = `${picks.length}석 예매하기`;
+}
+function dropSoldPicks(msg) {                       // 이미 팔린 좌석을 선택에서 빼기
+  const lost = picks.filter(i => sold[i]);
+  if (!lost.length) return false;
+  picks = picks.filter(i => !sold[i]);
+  toast(msg + (lost.length > 1 ? ` (${lost.length}석)` : ''));
+  updatePickInfo();
+  return true;
+}
+
+function openSeatPage() {
+  floor = 1; openSec = -1; picks = [];
+  $('spTitle').textContent = (venue === 'baseball' ? '⚾ ' : '🎤 ') + placeName();
+  $('floorTabs').classList.toggle('hide', venue !== 'concert' || !sections.some(x => x.floor === 2));
+  document.querySelectorAll('#floorTabs button').forEach(b => b.classList.toggle('sel', +b.dataset.f === 1));
+  $('overview').classList.remove('hide'); $('sectionView').classList.add('hide');
+  renderMap(); updatePickInfo();
+  $('seatPage').classList.remove('hide');
+}
+
+function confirmSeat() {
+  if (!picks.length) return;
+  sellUpTo(now());
+  if (dropSoldPicks('이미 선택된 좌석입니다. 다른 좌석을 선택해주세요.')) {
+    if (openSec >= 0) openSection(openSec);
+    return;
+  }
+  picks.forEach(markSold);
+  finish(true, picks.map(seatLabel));
+}
+
+/* =========================================================
+   8. 결과
+   ========================================================= */
+function finish(success, seatText) {
+  phase = 'done';
+  const t = now();
+  const clickSec = (clickedAt - target) / 1000;
+  const capSec = capOkAt ? (capOkAt - waitEndAt) / 1000 : null;
+  const seatSec = capOkAt ? (t - capOkAt) / 1000 : null;
+  const total = (t - target) / 1000;
+  let g;
+  if (!success) g = ['😭 예매 실패', '#e0273f'];
+  else if (total < 4) g = ['🏆 완벽한 티켓팅', '#1aa564'];
+  else if (total < 8) g = ['🎉 예매 성공', '#1aa564'];
+  else if (total < 14) g = ['🙂 겨우 성공', '#d98a00'];
+  else g = ['😅 남은 자리 줍줍', '#d98a00'];
+  $('resGrade').textContent = g[0]; $('resGrade').style.color = g[1];
+  const rows = [
+    [success ? `좌석 (${seatText.length}석)` : '좌석', success ? seatText.join('<br>') : '-'],
+    ['예매하기 클릭', clickSec.toFixed(3) + '초'],
+    ['대기번호', fmt(queueNo) + '번'],
+    ['대기열 통과', waitEndAt && t >= waitEndAt ? ((waitEndAt - waitStartAt) / 1000).toFixed(3) + '초' : '통과 못 함'],
+    ['보안문자 입력', capSec != null ? capSec.toFixed(3) + '초' : '-'],
+    ['좌석 선택', seatSec != null ? seatSec.toFixed(3) + '초' : '-'],
+    ['오픈 후 총 소요', total.toFixed(3) + '초'],
+    ['그때까지 팔린 좌석', `${fmt(soldCount)} / ${fmt(TOTAL)}석`],
+  ];
+  $('resTable').innerHTML = rows.map(([a, b]) => `<tr><th>${a}</th><td>${b}</td></tr>`).join('');
+  closeAllOverlays();
+  $('resModal').classList.remove('hide');
+  $('book').textContent = '완료 · 다시 하려면 시간 설정';
+
+  records.unshift({ click: clickSec, total, seat: success ? (seatText.length > 1 ? `${seatText[0]} 외 ${seatText.length - 1}석` : seatText[0]) : '실패', v: venue, place: placeName() });
+  records = records.slice(0, 30);
+  try { localStorage.setItem('tkt-records-v2', JSON.stringify(records)); } catch (e) {}
+  renderLog();
+}
+
+function renderLog() {
+  const tb = $('log');
+  if (!records.length) {
+    tb.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">아직 기록이 없어요</td></tr>';
+    $('best').textContent = ''; return;
+  }
+  tb.innerHTML = records.map((r, i) =>
+    `<tr><td>${records.length - i}</td><td>${r.click.toFixed(3)}초</td><td>${r.seat === '실패' ? '-' : r.total.toFixed(2) + '초'}</td>
+     <td style="font-size:12px">${r.v === 'concert' ? '🎤' : '⚾'} ${r.place ? r.place.replace('야구장', '').replace(/^서울 /, '') + ' ' : ''}${r.seat}</td></tr>`).join('');
+  const ok = records.filter(r => r.seat !== '실패');
+  const bestClick = Math.min(...records.map(r => r.click));
+  $('best').textContent = `최고 클릭 ${bestClick.toFixed(3)}초` +
+    (ok.length ? ` · 최고 총 소요 ${Math.min(...ok.map(r => r.total)).toFixed(2)}초` : '') +
+    ` · 성공 ${ok.length}/${records.length}회`;
+}
+
+/* =========================================================
+   9. 메인 루프
+   ========================================================= */
+let lastMapUpdate = 0;
+function tick() {
+  const t = now(), d = new Date(t);
+  $('clock').innerHTML = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}<span class="ms">.${pad(d.getMilliseconds(), 3)}</span>`;
+
+  if (target) {
+    const diff = target - t, b = $('book');
+    if (diff > 0) {
+      $('status').innerHTML = `오픈까지 <b>${(diff / 1000).toFixed(3)}초</b>`;
+      $('qnum').textContent = '0명'; $('qtime').textContent = '0.000초';
+    } else {
+      const el = -diff / 1000;
+      if (phase === 'idle') {
+        if (!b.classList.contains('on')) { b.classList.add('on'); b.disabled = false; }
+        $('status').innerHTML = `<b>오픈!</b> 지금 누르세요`;
+        $('qnum').textContent = fmt(Math.floor(el * 1000) * PER_MS) + '명';
+        $('qtime').textContent = el.toFixed(3) + '초';
+      } else if (phase === 'done') {
+        $('status').textContent = '다시 하려면 아래에서 시간을 설정하세요';
+      } else {
+        $('status').innerHTML = `예매 진행 중 · 잔여 <b>${fmt(TOTAL - soldCount)}</b>석`;
+      }
+      // 대기열 칸 채우기
+      const fill = Math.min(Q_CELLS - 1, Math.floor(-diff / 100));
+      while (qFilled < fill) { qFilled++; if (qcells[qFilled].className !== 'me') qcells[qFilled].className = 'f'; }
+
+      // 좌석 판매 진행
+      if (phase !== 'done') {
+        const changed = sellUpTo(t);
+        if (phase === 'wait') {
+          const total = waitEndAt - waitStartAt, left = Math.max(0, waitEndAt - t);
+          const ahead = Math.ceil(left / 1000 * DRAIN_RATE);
+          $('waitLeft').textContent = fmt(ahead) + '명';
+          $('waitBar').style.width = (total > 0 ? (1 - left / total) * 100 : 100).toFixed(1) + '%';
+          $('waitInfo').innerHTML = `내 대기번호 ${fmt(queueNo)}번 · 1초에 ${fmt(DRAIN_RATE)}명씩 입장<br>` +
+            `예상 남은 시간 ${(left / 1000).toFixed(1)}초<br>지금까지 팔린 좌석 <b>${fmt(soldCount)}</b> / ${fmt(TOTAL)}석`;
+          if (unsoldLen === 0) { toast('대기 중에 전석 매진되었습니다'); finish(false); }
+          else if (left <= 0) {
+            $('waitModal').classList.add('hide');
+            phase = 'captcha'; openCaptcha();
+          }
+        }
+        if (phase === 'seat') {
+          $('spSub').innerHTML = `오픈 후 ${el.toFixed(3)}초 · 잔여 <b>${fmt(TOTAL - soldCount)}</b> / ${fmt(TOTAL)}석`;
+          if (openSec >= 0 && changed.length) {
+            const lo = sections[openSec].base, hi = lo + sections[openSec].size;
+            for (const idx of changed) if (idx >= lo && idx < hi) {
+              const el2 = $('seats').querySelector(`[data-s="${idx}"]`);
+              if (el2) { el2.classList.add('sold'); el2.classList.remove('pick'); }
+            }
+            $('secRemain').textContent = `잔여 ${fmt(remainOf(openSec))}석 / ${fmt(sections[openSec].size)}석`;
+          }
+          dropSoldPicks('선택한 좌석이 먼저 예매됐어요!');
+          if (t - lastMapUpdate > 250 && openSec < 0) { updateMapCounts(); lastMapUpdate = t; }
+          if (unsoldLen === 0) { toast('전석 매진되었습니다'); finish(false); }
+        }
+      }
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+/* =========================================================
+   10. 이벤트 연결
+   ========================================================= */
+let toastTimer;
+function toast(m) {
+  const el = $('toast'); el.textContent = m; el.classList.remove('hide');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.add('hide'), 1800);
+}
+function closeAllOverlays() {
+  ['waitModal', 'capModal', 'seatPage', 'resModal'].forEach(id => $(id).classList.add('hide'));
+}
+
+$('book').addEventListener('pointerdown', onBook);
+$('book').addEventListener('click', onBook);
+document.addEventListener('keydown', e => {
+  if ((e.code === 'Space' || e.code === 'Enter') && phase === 'idle' && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); onBook(); }
+});
+
+$('capOk').addEventListener('click', checkCaptcha);
+$('capRe').addEventListener('click', () => { drawCaptcha(); $('capInput').value = ''; $('capInput').focus(); });
+$('capInput').addEventListener('keydown', e => { if (e.key === 'Enter') checkCaptcha(); });
+
+$('backMap').addEventListener('click', () => {
+  openSec = -1; $('sectionView').classList.add('hide'); $('overview').classList.remove('hide'); updateMapCounts();
+});
+document.querySelectorAll('#floorTabs button').forEach(b => b.addEventListener('click', () => {
+  floor = +b.dataset.f;
+  document.querySelectorAll('#floorTabs button').forEach(x => x.classList.toggle('sel', x === b));
+  renderMap();
+}));
+$('confirmSeat').addEventListener('click', confirmSeat);
+$('spExit').addEventListener('click', () => finish(false));
+$('waitClose').addEventListener('click', () => { if (phase === 'wait') finish(false); });
+$('resClose').addEventListener('click', () => $('resModal').classList.add('hide'));
+
+function onVenueChange() {
+  setupVenue();
+  if (target && target > now()) setTarget(target);   // 미래 시간이면 그대로 유지
+  else {
+    target = null; phase = 'idle'; closeAllOverlays();
+    for (const c of qcells) c.className = '';
+    $('status').textContent = '오픈 시간을 설정하세요';
+    const bk = $('book'); bk.className = 'btn-book'; bk.disabled = true; bk.textContent = '예매하기';
+  }
+}
+document.querySelectorAll('#venueSeg button').forEach(b => b.addEventListener('click', () => {
+  venue = b.dataset.v;
+  document.querySelectorAll('#venueSeg button').forEach(x => x.classList.toggle('sel', x === b));
+  onVenueChange();
+}));
+$('stadiumSel').addEventListener('change', e => {
+  if (venue === 'baseball') { stadiumId = e.target.value; try { localStorage.setItem('tkt-stadium', stadiumId); } catch (err) {} }
+  else { hallId = e.target.value; try { localStorage.setItem('tkt-hall', hallId); } catch (err) {} }
+  onVenueChange();
+});
+
+$('apply').addEventListener('click', () => {
+  const hv = $('hh').value, mv = $('mm').value, h = +hv, m = +mv, s = +$('ss').value || 0;
+  if (hv === '' || mv === '' || isNaN(h) || isNaN(m) || h > 23 || m > 59 || s > 59) { $('msg').textContent = '시·분·초를 올바르게 입력하세요'; return; }
+  const d = new Date(); d.setHours(h, m, s, 0);
+  if (d.getTime() <= now()) { $('msg').textContent = '이미 지난 시간이에요. 미래 시간을 넣어주세요'; return; }
+  setTarget(d.getTime());
+});
+document.querySelectorAll('[data-add]').forEach(btn => btn.addEventListener('click', () => {
+  const v = btn.dataset.add; let d;
+  if (v === 'next') { d = new Date(now()); d.setSeconds(60, 0); }
+  else { d = new Date(now() + (+v) * 1000); d.setMilliseconds(0); }
+  setTarget(d.getTime());
+}));
+$('clearLog').addEventListener('click', () => {
+  records = []; try { localStorage.removeItem('tkt-records-v2'); } catch (e) {}
+  renderLog();
+});
+
+/* 시작 */
+setupVenue();
+renderLog();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
